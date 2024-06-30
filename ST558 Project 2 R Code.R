@@ -13,10 +13,10 @@ library("jsonlite")
 
 #####2. Query APIs#####
 ###2a. Set up base urls, endpoints, and keys###
-treasury_base_url="https://api.fiscaldata.treasury.gov/services/api/fiscal_service"
+treasury_base_url="https://api.fiscaldata.treasury.gov/services/api/fiscal_service/"
 
-treasury_endpoint="/v1/accounting/od/tips_cpi_data_summary"
-treasury_endpoint_FX="/v1/accounting/od/rates_of_exchange"
+treasury_endpoint="v1/accounting/od/tips_cpi_data_summary"
+treasury_endpoint_FX="v1/accounting/od/rates_of_exchange"
 
 
 
@@ -86,18 +86,42 @@ unique(treasury_df$record_date)            #looks good#
 
 
 
-###2c. Create UDF To Make Easier###
+###2f. Add additional endpoints and extract details###
+#See that treasury("TIPS") returns way less than expected#
+#https://fiscaldata.treasury.gov/datasets/tips-cpi-data/reference-cpi-numbers-and-daily-index-ratios-summary-table...#
+#says two possible data tables can be returned, summary (53 rows) and details (134 rows)#
+#guess that details changes endpoint from "/v1/accounting/od/tips_cpi_data_summary" to ...#
+#"/v1/accounting/od/tips_cpi_data_detail". Checking seems correct#
+
+"v1/accounting/od/tips_cpi_data_detail"                 #Information on CPI and TIPS#
+"v1/accounting/od/rates_of_exchange"                    #Quarterly info on exhange rates#
+interest="v2/accounting/od/interest_expense"            #Interest Payments on debt#
+auction="v1/accounting/od/auctions_query"               #treasury auction data#
+debt="v2/accounting/od/debt_to_penny"                   #debt to the penny#
+gold="v2/accounting/od/gold_reserve"                    #gold reserves#
+rates="v2/accounting/od/avg_interest_rates"             #average interest rate across maturities#
+outstanding="v2/accounting/od/debt_outstanding"         #total debt outstanding#
+spending="v1/accounting/od/receipts_by_department"      #spending by dept#
+
+
+
+###2f. Create UDF to make easier###
 
 treasury=function(data_type) {
-  
-  base_url="https://api.fiscaldata.treasury.gov/services/api/fiscal_service"
-  
   endpoint_lookup=data.frame(
-    data=c("TIPS", "FX"),
-    url=c("/v1/accounting/od/tips_cpi_data_summary",
-          "/v1/accounting/od/rates_of_exchange")
+    input=c("tips", "fx", "interest", "auction", "debt", "gold", "rates", "outstanding", "spending"),
+    url=c("v1/accounting/od/tips_cpi_data_detail",
+          "v1/accounting/od/rates_of_exchange",
+          "v2/accounting/od/interest_expense",
+          "v1/accounting/od/auctions_query",
+          "v2/accounting/od/debt_to_penny",
+          "v2/accounting/od/gold_reserve",
+          "v2/accounting/od/avg_interest_rates",
+          "v2/accounting/od/debt_outstanding",
+          "v1/accounting/od/receipts_by_department")
   )
   
+  base_url="https://api.fiscaldata.treasury.gov/services/api/fiscal_service/"
   endpoint=endpoint_lookup[,2][match(data_type, endpoint_lookup[,1])]
   
   api_return=GET(paste0(base_url, endpoint))
@@ -126,7 +150,18 @@ treasury=function(data_type) {
   return(as_tibble(df))
 }
 
-             
+fx=treasury("fx")
+tips=treasury("tips")
+gold=treasury("gold")
+debt=treasury("debt")
+auction=treasury("auction")
+rates=treasury("rates")
+outstanding=treasury("outstanding")
+spending=treasury("spending")
+interest=treasury("interest")
+
+
+
 
 
 
@@ -140,7 +175,14 @@ api_return=GET(treasury_url1)
 
 
 
+treasury_base_url="https://api.fiscaldata.treasury.gov/services/api/fiscal_service"
+treasury_endpoint="/v1/accounting/od/tips_cpi_data_detail"
 
+api_return=GET(paste0(treasury_base_url, treasury_endpoint)) 
+str(api_return, max.level=1)
+
+plain=fromJSON(rawToChar(api_return$content))
+str(plain, max.level=1)
 
 
 FRED_base_url="https://api.stlouisfed.org/fred/category"
