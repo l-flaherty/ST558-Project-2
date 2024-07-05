@@ -6,6 +6,7 @@ install.packages("jsonlite")
 library("tidyverse")
 library("httr")
 library("jsonlite")
+options(digits = 15)   #to prevent scientific  notation with large numbers#
 
 
 
@@ -280,6 +281,9 @@ unique(rates$security)
 
 #/v1/accounting/od/tips_cpi_data_summary vs 	/v1/accounting/od/tips_cpi_data_detail#
 #xxxxxxxdo left_join inside formula, change term to numericxxxxxxxx#
+#dated_date is when interest starts acruing#
+#index ratio is dividing the reference CPI on the issue date of the security...# 
+#... by the reference CPI on the original dated date of the security being announced/auctioned.#
 
 a=GET(paste0("https://api.fiscaldata.treasury.gov/services/api/fiscal_service/",
              "/v1/accounting/od/tips_cpi_data_summary"))
@@ -323,12 +327,60 @@ debt=debt|>
 
 
 
+###3g. Auction###
+#The Treasury Securities Auctions Data dataset provides data on announced and auctioned...
+#...marketable Treasury securities. The issue date, security type, security term, maturity date, ...#
+#...along with other descriptors are provided for the auctioned/announced Treasury securities.#
+#Treasury uses an auction process to sell marketable securities and determine their rate, yield, ...#
+#...or discount margin. The value of Treasury marketable securities fluctuates with changes in interest...#
+#rates and market demand.#
+#https://fiscaldata.treasury.gov/datasets/treasury-securities-auctions-data/treasury-securities-auctions-data#
+#100s of variables to look through#
 
-#########scrap#################
+
+###3h. Outstanding###
+#Historical Debt Outstanding is a dataset that provides a summary of the U.S. government's...#
+#...total outstanding debt at the end of each fiscal year from 1789 to the current year.#
+#Between 1789 and 1842, the fiscal year began in January. From January 1842 until 1977, ...#
+#...the fiscal year began in July. From July 1977 onwards, the fiscal year has started in October.#
+#Between 1789 and 1919, debt outstanding was presented as of the first day of the next fiscal year.#
+#From 1920 onwards, debt outstanding has been presented as of the final day of the fiscal year.#
+#This is a high-level summary of historical public debt and does not contain a breakdown of the debt components.#
+#https://fiscaldata.treasury.gov/datasets/historical-debt-outstanding/historical-debt-outstanding#
+
+outstanding=outstanding |>
+  rename(date=record_date, debt=debt_outstanding_amt) |>
+  select(date, debt) |>
+  mutate(date = as.Date(date))
+
+outstanding
 
 
-auction=treasury("auction")
-outstanding=treasury("outstanding")
+###3i. Spending###
+#The Receipts by Department dataset is part of the Combined Statement of Receipts, Outlays, ...#
+#...and Balances published by the Bureau of the Fiscal Service at the end of each fiscal year.#
+#The Combined Statement is recognized as the official publication of receipts and outlays.#
+#This dataset contains department receipt amounts broken out by type, account, and line item.
+#https://fiscaldata.treasury.gov/datasets/receipts-by-department/receipts-by-department#
+
+spending=spending |>
+  rename(date=record_date, 
+         line_item=receipt_line_item_nm, 
+         agency_id=aid_cd, 
+         amount=receipt_amt) |>
+  select(date, line_item, agency_id, amount) |>
+  mutate(date=as.Date(date), 
+         agency_id=as.numeric(agency_id),
+         amount=as.numeric(amount))
+  
+
+
+
+
+#####4. Visuals and Summaries#####
+
+#########scrap#############################################################################################
+
 spending=treasury("spending")
 
 treasury_TIPS=plaintext$data
