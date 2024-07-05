@@ -14,27 +14,25 @@ library("jsonlite")
 #####2. Query APIs#####
 ###2a. Set up base urls, endpoints, and keys###
 treasury_base_url="https://api.fiscaldata.treasury.gov/services/api/fiscal_service/"
-
-treasury_endpoint="v1/accounting/od/tips_cpi_data_summary"
-treasury_endpoint_FX="v1/accounting/od/rates_of_exchange"
+treasury_endpoint="v1/accounting/od/rates_of_exchange"
 
 
 
 ###2b. Set up url###
 treasury_url=paste0(treasury_base_url, treasury_endpoint)
-treasury_url1=paste0(treasury_base_url, treasury_endpoint_FX)
 
 
 
 ###2c. Query API###
 api_return=GET(treasury_url)          
-str(api_return, max.level=1)    #glimpse of what the API returns#
+str(api_return, max.level=1)                        #glimpse of what the API returns#
 
 
 plaintext=fromJSON(rawToChar(api_return$content))
-str(plaintext, max.level=1)    #plaintext$data seems to be format of most of them#
+str(plaintext, max.level=1)                         #plaintext$data seems to be format of most of them#
 
-plaintext$data                 #record date not recent#
+plaintext$data                 
+unique(plaintext$data$record_date)                  #record date not recent#
 
 
 
@@ -49,16 +47,17 @@ plaintext$data                 #record date not recent#
 plaintext$meta[["total-count"]]     #17368#
 plaintext$meta[["total-pages"]]     #174#
 
-treasury_url=paste0(
+test_url=paste0(
   treasury_base_url,
-  treasury_endpoint_FX,
+  treasury_endpoint,
   "?page[number]=", 1,
   "&page[size]=", 17368
 )
 
-api_return1=GET(treasury_url) 
-plaintext=fromJSON(rawToChar(api_return1$content))
-str(plaintext, max.level=1)        #error message: max per page is 10000#
+test_return=GET(test_url) 
+test_plain=fromJSON(rawToChar(test_return$content))
+str(test_plain, max.level=1)                           #error message: see that max per page is 10000#
+rm(test_url, test_return, test_plain)                   #keep environment clean#
 
 
 
@@ -71,7 +70,7 @@ for (i in 1:page_number) {
   
   treasury_url=paste0(
     treasury_base_url,
-    treasury_endpoint_FX,
+    treasury_endpoint,
     "?page[number]=", i,
     "&page[size]=", 1000)
   
@@ -82,6 +81,7 @@ for (i in 1:page_number) {
   treasury_df=rbind(treasury_df, a)
 }
 
+rm(api, plain, a, i)
 unique(treasury_df$record_date)            #looks good#
 
 
@@ -93,8 +93,8 @@ unique(treasury_df$record_date)            #looks good#
 #guess that details changes endpoint from "/v1/accounting/od/tips_cpi_data_summary" to ...#
 #"/v1/accounting/od/tips_cpi_data_detail". Checking seems correct#
 
-"v1/accounting/od/tips_cpi_data_detail"                 #Information on CPI and TIPS#
-"v1/accounting/od/rates_of_exchange"                    #Quarterly info on exhange rates#
+tips="v1/accounting/od/tips_cpi_data_detail"            #Information on CPI and TIPS#
+fx="v1/accounting/od/rates_of_exchange"                 #Quarterly info on exchange rates#
 interest="v2/accounting/od/interest_expense"            #Interest Payments on debt#
 auction="v1/accounting/od/auctions_query"               #treasury auction data#
 debt="v2/accounting/od/debt_to_penny"                   #debt to the penny#
@@ -164,10 +164,172 @@ interest=treasury("interest")
 
 
 
+#####3. Exploritory Data Analysis#####
+
+###3a. Gold###
+#The U.S. Treasury-Owned Gold dataset provides the amount of gold that is available...# 
+#...across various U.S. Treasury-maintained locations. The data shows whether the gold...# 
+#...is held in deep storage or working stock, that is, available to the U.S. Mint as raw...#
+#...material for the creation of congressionally authorized coins. The dataset includes...# 
+#...the weight of gold in troy ounces (a measurement unit still used today for precious...# 
+#...metals and gunpowder) and the book value in dollars.The book value is not the market value,...#
+#...but instead represents the total number of troy ounces multiplied by a value established by law ($42.222), set in 1973.#
+#https://fiscaldata.treasury.gov/datasets/status-report-government-gold-reserve/u-s-treasury-owned-gold#
+
+as.data.frame(gold[1:5,])   #no need for many of the columns#
+goldcol=c("record_date", "facility_desc", "form_desc", "location_desc", "fine_troy_ounce_qty", "book_value_amt")
+
+
+gold= gold |>
+  select(all_of(goldcol)) 
+names(gold)=c("date", "facility", "form", "location", "qty", "book_vale")
+
+unique(gold$facility)
+unique(gold$form)
+unique(gold$location)
+
+gold=gold |>
+  mutate(facility=str_replace(gold$facility, " Held Gold", ""))
+
+
+table(gold$form, gold$facility)   #make contingency table#
+
+
+
+###3b. FX###
+#The Treasury Reporting Rates of Exchange dataset provides the U.S. government's...# 
+#...authoritative exchange rates to ensure consistency for foreign currency units and...# 
+#...U.S. dollar equivalents across all reporting done by agencies of the government...# 
+#...This report covers any foreign currencies in which the U.S. government has an interest,...# 
+#...including: receipts and disbursements, accrued revenues and expenditures, authorizations,...# 
+#...obligations, receivables and payables, refunds, and similar reverse transaction items.# 
+#...The Secretary of the Treasury has the sole authority to establish the exchange rates for...# 
+#...all foreign currencies or credits reported by government agencies under federal law.# 
+#...For pulling specific exchange rates based on country or currency please see the Notes and Known Limitations below.#
+#https://fiscaldata.treasury.gov/datasets/treasury-reporting-rates-exchange/treasury-reporting-rates-of-exchange#
+
+as.data.frame(fx[1:5,])   #no need for many of the columns#
+
+fx=fx |>
+  select(effective_date, country, currency, exchange_rate) |>
+  rename(date=effective_date, rate_per_usd=exchange_rate)
+
+unique(fx$country)
+unique(fx$currency)
+unique(fx$date)
+
+print(fx[which(fx$country=="China"),], n=74)
+
+
+
+###3b. Interest###
+#The Interest Expense on the Public Debt Outstanding dataset provides monthly and...# 
+#...fiscal year-to-date values for interest expenses on federal government debt, that is, ...#
+#the cost to the U.S. for borrowing money (calculated at a specified rate and period of time)...#
+#This dataset is useful for those who wish to track the cost of maintaining federal debt.#
+#https://fiscaldata.treasury.gov/datasets/interest-expense-debt-outstanding/interest-expense-on-the-public-debt-outstanding#
+
+as.data.frame(interest[1:5,])
+
+interest=interest |> 
+  rename(date=record_date,
+         category=expense_catg_desc,
+         group=expense_group_desc,
+         type=expense_type_desc,
+         mtd_expense=month_expense_amt,
+         ytd_expense=fytd_expense_amt) |>
+  select(date, category, group, type, mtd_expense, ytd_expense)
+
+unique(interest$category)
+unique(interest$group)
+unique(interest$type)
+
+interest=interest |>
+  mutate(category=str_replace(interest$category, "INTEREST EXPENSE ON ", ""))
+
+
+
+###3d. Rates#
+#The Average Interest Rates on U.S. Treasury Securities dataset provides average interest rates...# 
+#...on U.S. Treasury securities on a monthly basis. Its primary purpose is to show the average interest...#
+#...rate on a variety of marketable and non-marketable Treasury securities. Marketable securities consist of...#
+#...Treasury Bills, Notes, Bonds, Treasury Inflation-Protected Securities (TIPS), Floating Rate Notes (FRNs),...#
+#...and Federal Financing Bank (FFB) securities. Non-marketable securities consist of Domestic Series, Foreign Series,...#
+#...State and Local Government Series (SLGS), U.S. Savings Securities, and Government Account Series (GAS) securities...#
+#...Marketable securities are negotiable and transferable and may be sold on the secondary market. Non-marketable securities...#
+#...are not negotiable or transferrable and are not sold on the secondary market. This is a useful dataset for investors and...# 
+#...bond holders to compare how interest rates on Treasury securities have changed over time.#
+#https://fiscaldata.treasury.gov/datasets/average-interest-rates-treasury-securities/average-interest-rates-on-u-s-treasury-securities#
+
+
+rates=rates|>
+  rename(date=record_date, type=security_type_desc, security=security_desc, rate=avg_interest_rate_amt) |>
+  select(date, type, security, rate)
+
+unique(rates$type)
+unique(rates$security)
+
+
+
+###3e. TIPS###
+#The TIPS and CPI Data dataset contains data on Treasury Inflation Protected Securities (TIPS) and the Consumer Price Index (CPI).#
+#The principal of a TIPS fluctuates with inflation and deflation. While the interest rate is fixed, the amount of interest paid...#
+#...every six months may vary based on any change in the principal. Those changes are tied to the Consumer Price Index from the U.S.#
+#Department of Labor, Bureau of Labor Statistics. This dataset is useful in calculating inflation-adjusted interest payments.#
+#https://fiscaldata.treasury.gov/datasets/tips-cpi-data/reference-cpi-numbers-and-daily-index-ratios-summary-table#
+
+#/v1/accounting/od/tips_cpi_data_summary vs 	/v1/accounting/od/tips_cpi_data_detail#
+#xxxxxxxdo left_join inside formula, change term to numericxxxxxxxx#
+
+a=GET(paste0("https://api.fiscaldata.treasury.gov/services/api/fiscal_service/",
+             "/v1/accounting/od/tips_cpi_data_summary"))
+p1=fromJSON(rawToChar(a$content))
+tips_summary=as_tibble(p1$data)      
+rm(a, p1)
+
+tips
+tips_summary
+
+tips_summary=tips_summary |>
+  rename(term=security_term,
+         auction_date=original_auction_date,
+         cpi_on_dated_date=ref_cpi_on_dated_date) |>
+  select(cusip, interest_rate, term, auction_date, dated_date, cpi_on_dated_date)
+
+tips=tips|>
+  rename(issue=original_issue_date, cpi=ref_cpi) |>
+  select(cusip, issue, index_date, cpi, index_ratio) |>
+  left_join(tips_summary, by= c("cusip" = "cusip"))
+
+
+
+###3f. Debt###
+#The Debt to the Penny dataset provides information about the total outstanding public debt ...#
+#...and is reported each day. Debt to the Penny is made up of intragovernmental holdings and debt...#
+#...held by the public, including securities issued by the U.S. Treasury. Total public debt outstanding...#
+#...is composed of Treasury Bills, Notes, Bonds, Treasury Inflation-Protected Securities (TIPS), ...#
+#...Floating Rate Notes (FRNs), and Federal Financing Bank (FFB) securities, as well as Domestic Series,...#
+#...Foreign Series, State and Local Government Series (SLGS), U.S. Savings Securities, and...#
+#...Government Account Series (GAS) securities. Debt to the Penny is updated at the end of each business...#
+#...day with data from the previous business day.#
+#https://fiscaldata.treasury.gov/datasets/debt-to-the-penny/debt-to-the-penny#
+
+debt=debt|>
+  rename(date=record_date,
+         debt_held_public=debt_held_public_amt,
+         intragov_hold=intragov_hold_amt,
+         debt_outstanding=tot_pub_debt_out_amt) |>
+  select(date, debt_held_public, intragov_hold, debt_outstanding)
+
 
 
 
 #########scrap#################
+
+
+auction=treasury("auction")
+outstanding=treasury("outstanding")
+spending=treasury("spending")
 
 treasury_TIPS=plaintext$data
 
@@ -192,3 +354,30 @@ categoryid=1234
 FRED_url=paste0(FRED_base_url,
                 "?category_id=", categoryid,
                 "?api_key=", FRED_key)
+
+
+
+df=data.frame(promote=c(9,29,34,12), dont=c(41,39,46,38))
+r=rowSums(df)
+df=cbind(df,r)
+c=colSums(df)
+df=rbind(df, c)
+
+expected=vector(); mysum=vector(); deviation=vector()
+
+for (i in 1:4) {
+  for (j in 1:2) {
+    expected[2*(i-1)+j]=(df[i,3]*df[5,j])/df[5,3]
+    deviation[2*(i-1)+j]=(df[i,j]-expected[2*(i-1)+j])
+    mysum[2*(i-1)+j]=(deviation[2*(i-1)+j])^2/expected[2*(i-1)+j]
+  }
+}
+
+teststat=sum(mysum)
+dof=(4-1)*(2-1)
+pval=1-pchisq(teststat, dof)
+pval
+expected
+deviation
+
+
