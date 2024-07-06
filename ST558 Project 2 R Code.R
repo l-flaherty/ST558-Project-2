@@ -6,9 +6,8 @@ install.packages("jsonlite")
 library("tidyverse")
 library("httr")
 library("jsonlite")
-options(digits = 15)   #to prevent scientific  notation with large numbers#
-
-
+options(scipen=999)                  #to prevent scientific  notation with large numbers#
+#options(scipen = 0, digits = 7)     to reset#
 
 
 
@@ -165,8 +164,7 @@ interest=treasury("interest")
 
 
 
-#####3. Exploritory Data Analysis#####
-
+#####3. Exploratory Data Analysis#####
 ###3a. Gold###
 #The U.S. Treasury-Owned Gold dataset provides the amount of gold that is available...# 
 #...across various U.S. Treasury-maintained locations. The data shows whether the gold...# 
@@ -183,14 +181,17 @@ goldcol=c("record_date", "facility_desc", "form_desc", "location_desc", "fine_tr
 
 gold= gold |>
   select(all_of(goldcol)) 
-names(gold)=c("date", "facility", "form", "location", "qty", "book_vale")
+names(gold)=c("date", "facility", "form", "location", "qty", "book_value")
 
 unique(gold$facility)
 unique(gold$form)
 unique(gold$location)
 
 gold=gold |>
-  mutate(facility=str_replace(gold$facility, " Held Gold", ""))
+  mutate(facility=str_replace(gold$facility, " Held Gold", "")) |>
+  mutate(location=str_replace(gold$location, "All Locations- Coins, blanks, m", "M")) |>
+  mutate(location=str_replace(gold$location, "Federal Reserve Banks", "FRB")) |>
+  mutate(date=as.Date(date), qty=as.numeric(qty), book_value=as.numeric(book_value))
 
 
 table(gold$form, gold$facility)   #make contingency table#
@@ -213,7 +214,8 @@ as.data.frame(fx[1:5,])   #no need for many of the columns#
 
 fx=fx |>
   select(effective_date, country, currency, exchange_rate) |>
-  rename(date=effective_date, rate_per_usd=exchange_rate)
+  rename(date=effective_date, rate_per_usd=exchange_rate) |>
+  mutate(date=as.Date(date), rate_per_usd=as.numeric(rate_per_usd))
 
 unique(fx$country)
 unique(fx$currency)
@@ -262,10 +264,13 @@ interest=interest |>
 #...bond holders to compare how interest rates on Treasury securities have changed over time.#
 #https://fiscaldata.treasury.gov/datasets/average-interest-rates-treasury-securities/average-interest-rates-on-u-s-treasury-securities#
 
+rates=treasury("rates")
 
 rates=rates|>
   rename(date=record_date, type=security_type_desc, security=security_desc, rate=avg_interest_rate_amt) |>
-  select(date, type, security, rate)
+  select(date, type, security, rate) |>
+  suppressWarnings(
+    mutate(date=as.Date(date), as.numeric(rate)))
 
 unique(rates$type)
 unique(rates$security)
@@ -323,7 +328,11 @@ debt=debt|>
          debt_held_public=debt_held_public_amt,
          intragov_hold=intragov_hold_amt,
          debt_outstanding=tot_pub_debt_out_amt) |>
-  select(date, debt_held_public, intragov_hold, debt_outstanding)
+  select(date, debt_held_public, intragov_hold, debt_outstanding) |>
+  mutate(date=as.Date(date), 
+         debt_held_public=suppressWarnings(as.numeric(debt_held_public)),
+         intragov_hold=suppressWarnings(as.numeric(intragov_hold)),
+         debt_outstanding=suppressWarnings(as.numeric(debt_outstanding))) 
 
 
 
@@ -378,8 +387,105 @@ spending=spending |>
 
 
 #####4. Visuals and Summaries#####
+###4a. TIPS###
+
+cpi=tips[!duplicated(tips$index_date), ]
+
+
+###4b. FX###
+#maybe make a vector of countries?#
+#Make so countries with multiple currencies work#
+
+fx_rate=function(user_country, user_currency="default", user_date1="2001-03-31", user_date2="2024-06-14") {
+  a=fx|>
+    filter(country==user_country, 
+           (date>=user_date1 & date<=user_date2))
+  
+  if(user_currency=="default") {
+    a=a
+  } else {
+    a=filter(a, currency==user_currency)
+  }
+  
+  ggplot(data=a, aes(x=date, y=rate_per_usd)) +
+    geom_line() +
+    labs(x="Date", 
+         y="Rate Per USD", 
+         color="Red", 
+         title=paste(a$country, a$currency, "Per USD")) +
+    scale_y_continuous(labels = function(x) format(x, scientific = FALSE)) +
+    theme_bw() +
+    theme(plot.title=element_text(hjust=0.5))
+}
+
+fx_rate("Germany")
+fx_rate("Germany", "Mark")
+fx_rate("China")
+fx_rate("Canada")
+fx_rate("Russia")
+
+
+
+###4c. Gold###
+
+gold_location=function(df, user_date="2024-05-31") {
+  troy=df |>
+    filter(date==user_date) |>
+    group_by(location) |>
+    summarize(troy_ounces=sum(qty))
+  
+  mytitle=paste0("U.S. Gold Holdings", " As Of ", user_date)
+  
+  ggplot(troy, aes(x=location, y=troy_ounces)) +
+    geom_bar(stat="identity", fill="darkgoldenrod1") +
+    labs(x ="Location", y="Troy Ounces", title=mytitle) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          plot.title = element_text(hjust = 0.5)) +
+    scale_y_continuous(labels = scales::comma) 
+}
+
+gold_location(gold)
+
+
+###4d. Rates###
+#No good ideas, maybe see mark vs non-mark?#
+
+
+###4e. Debt###
+
+debt_plot=function(df, t1="1993-04-01", t2="2024-07-02", type="default") {
+  a=df |> 
+    filter(date >= t1 & date <=t2) |>
+    mutate(trillions=debt_outstanding/1000000000000)
+  
+  ggplot(a, aes(x=date, y=trillions)) +
+    geom_area(fill=555, alpha=0.3) +
+    geom_line(col="red", size=1) +
+    labs(x="Date", y="Debt Load (Trillions USD)", title="U.S. Federal Debt") +
+    theme_bw()+
+    theme(plot.title=element_text(hjust=0.5))
+}
+
+debt_plot(debt)
+
+
+
+###4f. interest###
+#Maybe break into group/type over time#
+
+
 
 #########scrap#############################################################################################
+
+
+interest="v2/accounting/od/interest_expense"            #Interest Payments on debt#
+auction="v1/accounting/od/auctions_query"               #treasury auction data#
+outstanding="v2/accounting/od/debt_outstanding"         #total debt outstanding#
+spending="v1/accounting/od/receipts_by_department"      #spending by dept#
+
+
+
 
 spending=treasury("spending")
 
