@@ -3,9 +3,11 @@
 install.packages("tidyverse")
 install.packages("httr")
 install.packages("jsonlite")
+install.packages("shiny")
 library("tidyverse")
 library("httr")
 library("jsonlite")
+library("shiny")
 options(scipen=999)                  #to prevent scientific  notation with large numbers#
 #options(scipen = 0, digits = 7)     to reset#
 
@@ -428,13 +430,22 @@ fx_rate("Russia")
 
 ###4c. Gold###
 
-gold_location=function(df, user_date="2024-05-31") {
+gold_location=function(df, default_date="2024-05-31") {
+  
+  user_date=as.Date(default_date)
+  
+  closest_date <- df |>
+    filter(!is.na(date)) |>
+    filter(date <= user_date) |>
+    slice(which.max(date - user_date)) |>
+    pull(date)
+  
   troy=df |>
-    filter(date==user_date) |>
+    filter(date==closest_date) |>
     group_by(location) |>
     summarize(troy_ounces=sum(qty))
   
-  mytitle=paste0("U.S. Gold Holdings", " As Of ", user_date)
+  mytitle=paste0("U.S. Gold Holdings", " As Of ", user_date, " (Updated Monthly)")
   
   ggplot(troy, aes(x=location, y=troy_ounces)) +
     geom_bar(stat="identity", fill="darkgoldenrod1") +
@@ -446,6 +457,9 @@ gold_location=function(df, user_date="2024-05-31") {
 }
 
 gold_location(gold)
+gold_location(gold, "2022-12-21")
+
+
 
 
 ###4d. Rates###
@@ -475,6 +489,10 @@ debt_plot(debt)
 #Maybe break into group/type over time#
 
 
+#sharing app by hosting on shinyappis.io#
+#also host files on giHub and run locally#
+#shiny::runGitHub("<your repo name>", "<your user name>")#
+
 
 #########scrap#############################################################################################
 
@@ -483,59 +501,4 @@ interest="v2/accounting/od/interest_expense"            #Interest Payments on de
 auction="v1/accounting/od/auctions_query"               #treasury auction data#
 outstanding="v2/accounting/od/debt_outstanding"         #total debt outstanding#
 spending="v1/accounting/od/receipts_by_department"      #spending by dept#
-
-
-
-
-spending=treasury("spending")
-
-treasury_TIPS=plaintext$data
-
-api_return=GET(treasury_url1) 
-
-
-
-treasury_base_url="https://api.fiscaldata.treasury.gov/services/api/fiscal_service"
-treasury_endpoint="/v1/accounting/od/tips_cpi_data_detail"
-
-api_return=GET(paste0(treasury_base_url, treasury_endpoint)) 
-str(api_return, max.level=1)
-
-plain=fromJSON(rawToChar(api_return$content))
-str(plain, max.level=1)
-
-
-FRED_base_url="https://api.stlouisfed.org/fred/category"
-FRED_key="3b731d3fa63435daf96131814e4b9079"
-categoryid=1234
-
-FRED_url=paste0(FRED_base_url,
-                "?category_id=", categoryid,
-                "?api_key=", FRED_key)
-
-
-
-df=data.frame(promote=c(9,29,34,12), dont=c(41,39,46,38))
-r=rowSums(df)
-df=cbind(df,r)
-c=colSums(df)
-df=rbind(df, c)
-
-expected=vector(); mysum=vector(); deviation=vector()
-
-for (i in 1:4) {
-  for (j in 1:2) {
-    expected[2*(i-1)+j]=(df[i,3]*df[5,j])/df[5,3]
-    deviation[2*(i-1)+j]=(df[i,j]-expected[2*(i-1)+j])
-    mysum[2*(i-1)+j]=(deviation[2*(i-1)+j])^2/expected[2*(i-1)+j]
-  }
-}
-
-teststat=sum(mysum)
-dof=(4-1)*(2-1)
-pval=1-pchisq(teststat, dof)
-pval
-expected
-deviation
-
 
