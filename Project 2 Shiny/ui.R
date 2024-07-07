@@ -1,5 +1,7 @@
 library(shiny)
 library(tidyverse)
+library(httr)
+library(jsonlite)
 
 
 fluidPage(
@@ -21,7 +23,22 @@ fluidPage(
             img(src="building.jpg", style="width: 30%; height: auto;")
           )
         )),
-        tabPanel("Data Download", plotOutput("plot1")),
+        
+        tabPanel("Data Download", fluidPage(
+          h2("Data Download"),
+          selectInput("data_type", "Select Data Type:",
+                      choices = c("Rates of Exchange"="fx", 
+                                  "Interest Expense"="interest", 
+                                  "Auctions Query"="auction",
+                                  "Debt to Penny"="debt",
+                                  "Gold Reserve"="gold", 
+                                  "Average Interest Rates"="rates",
+                                  "Debt Outstanding"="outstanding",
+                                  "Receipts by Department"="spending")),
+          downloadButton("download_data", "Download Data"),
+          verbatimTextOutput("table_head")
+        )),
+        
         tabPanel("Data Exploration", plotOutput("plot2"))
       )
     )

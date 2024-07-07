@@ -148,12 +148,11 @@ treasury=function(data_type) {
     
     df=rbind(df, a)
   }
-  
   return(as_tibble(df))
 }
 
 fx=treasury("fx")
-tips=treasury("tips")
+tips=treasury("tips")     #something going wrong now#
 gold=treasury("gold")
 debt=treasury("debt")
 auction=treasury("auction")
