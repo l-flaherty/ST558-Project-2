@@ -502,3 +502,4 @@ auction="v1/accounting/od/auctions_query"               #treasury auction data#
 outstanding="v2/accounting/od/debt_outstanding"         #total debt outstanding#
 spending="v1/accounting/od/receipts_by_department"      #spending by dept#
 
+img(src ="treasury.jpg" )

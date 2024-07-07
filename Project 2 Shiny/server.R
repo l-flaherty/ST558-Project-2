@@ -1,19 +1,33 @@
 library(shiny)
+library(tidyverse)
 
-server <- function(input, output) {
-  
-  output$distPlot <- renderPlot({
-    # generate bins based on input$bins from ui.R
-    x    <- faithful[, 2]
-    bins <- seq(min(x), max(x), length.out = input$bins + 1)
+function(input, output) {
+  filtered_data <- reactive({
+    user_date <- as.Date(input$date_selector)
+
+    df <- read.csv("gold.csv")
+    closest_date <- df |>
+      filter(!is.na(date)) |>
+      slice(which.min(abs(date - user_date))) |>
+      pull(date)
     
-    # draw the histogram with the specified number of bins
-    hist(x, breaks = bins, col = 'darkgray', border = 'white',
-         xlab = 'Waiting time to next eruption (in mins)',
-         main = 'Histogram of waiting times')
+    df_filtered <- df |>
+      filter(date == closest_date)
+    
+    return(df_filtered)
   })
   
-  output$myText <- renderText({
-    paste0("The Value of the slider is ", input$bins)
+  output$plot1 <- renderPlot({
+    troy <- filtered_data()
+    ggplot(troy, aes(x = location, y = qty)) +
+      geom_bar(stat = "identity", fill = "darkgoldenrod1") +
+      labs(x = "Location", y = "Quantity", title = "Gold Holdings by Location")
+  })
+  
+  output$plot2 <- renderPlot({
+    troy <- filtered_data()
+    ggplot(troy, aes(x = location, y = qty)) +
+      geom_point(size = 3, color = "blue") +
+      labs(x = "Location", y = "Quantity", title = "Scatter Plot of Gold Holdings")
   })
 }
