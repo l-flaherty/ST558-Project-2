@@ -1,9 +1,10 @@
 library(shiny)
+library(shinycssloaders)
 library(tidyverse)
 library(httr)
 library(jsonlite)
 
-#UDF#
+######1. UDF To Download Data From API######
 treasury=function(data_type) {
   
   #Create URL for API Query#
@@ -120,34 +121,110 @@ treasury=function(data_type) {
 
 
 
-######2. Server Logic######
-shinyServer(function(input, output) {
+
+
+#####2. Returning Data From API#####
+#fx=treasury("fx")
+#interest=treasury("interest")
+#outstanding=treasury("outstanding")
+#spending=treasury("spending")
+#rates=treasury("rates")
+#gold=treasury("gold")
+#debt=treasury("debt")
+
+
+
+
+
+
+#####3. Graphing Functions#####
+###3a. FX###
+fx_rate=function(user_country, user_currency="default", user_date1="2001-03-31", user_date2="2024-06-14") {
+  a=fx|>
+    filter(country==user_country, 
+           (date>=user_date1 & date<=user_date2))
   
-  #Store API data based on user input#
-  api_data <- reactive({
-    req(input$data_type)  
-    treasury(input$data_type)
-  })
+  if(user_currency=="default") {
+    a=a
+  } else {
+    a=filter(a, currency==user_currency)
+  }
   
-  #Show some data on tab#
-  output$table_head <- renderPrint({
-    api_data()
-  })
+  ggplot(data=a, aes(x=date, y=rate_per_usd)) +
+    geom_line() +
+    labs(x="Date", 
+         y="Rate Per USD", 
+         color="Red", 
+         title=paste(a$country, a$currency, "Per USD")) +
+    scale_y_continuous(labels = function(x) format(x, scientific = FALSE)) +
+    theme_bw() +
+    theme(plot.title=element_text(hjust=0.5))
+}
+
+
+
+
+
+
+
+#####4. Shiny Server Logic#####
+shinyServer(function(input, output, session) {
   
-  #Download data as CSV#
-  output$download_data <- downloadHandler(
-    filename = function() {
-      paste("data_download.csv")
-    },
-    content = function(file) {
-      write.csv(as.data.frame(api_data()), file, row.names = FALSE)
+  # ReactiveValues to store available countries and currencies
+  data_choices <- reactiveValues(countries = character(0),
+                                 currencies = character(0))
+  
+  # Observe data type selection and update country choices
+  observe({
+    req(input$data_type)
+    
+    if (input$data_type == "fx") {  # Only update for 'fx' data type
+      countries <- unique(fx$country)
+      data_choices$countries <- countries
+    } else {
+      data_choices$countries <- character(0)
     }
-  )
-  
-  
-  
-  #Placeholder reactive plot for Data Exploration tab#
-  output$plot2 <- renderPlot({
-    plot(1:10, main = "Placeholder Plot")
   })
+  
+  # Observe country selection and update currency choices
+  observe({
+    req(input$country)
+    
+    if (!is.null(input$country)) {
+      currencies <- fx |>
+        filter(country == input$country) |>
+        pull(currency) |>
+        unique()
+      
+      data_choices$currencies <- currencies
+    } else {
+      data_choices$currencies <- character(0)
+    }
+  })
+  
+  # Render the plot based on user selection
+  output$graphic_plot <- renderPlot({
+    req(input$data_type)
+    
+    if (input$data_type == "fx" &&
+        !is.null(input$country) &&
+        !is.null(input$currency)) {
+      fx_rate(input$country, input$currency, as.Date(paste0(input$year_slider[1], "-01-01")), as.Date(paste0(input$year_slider[2], "-12-31")))
+    } else {
+      ggplot() +
+        geom_point() +
+        labs(title = "Select a Data Type and Inputs to Begin", x = "", y = "")
+    }
+  })
+  
+  # Update country choices based on selected data type
+  observe({
+    updateSelectInput(session, "country", choices = data_choices$countries)
+  })
+  
+  # Update currency choices based on selected country
+  observe({
+    updateSelectInput(session, "currency", choices = data_choices$currencies)
+  })
+  
 })

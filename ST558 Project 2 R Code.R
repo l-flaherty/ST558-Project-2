@@ -4,10 +4,12 @@ install.packages("tidyverse")
 install.packages("httr")
 install.packages("jsonlite")
 install.packages("shiny")
+install.packages("shinycssloaders")
 library("tidyverse")
 library("httr")
 library("jsonlite")
 library("shiny")
+library("shinycssloaders")
 options(scipen=999)                  #to prevent scientific  notation with large numbers#
 #options(scipen = 0, digits = 7)     to reset#
 
