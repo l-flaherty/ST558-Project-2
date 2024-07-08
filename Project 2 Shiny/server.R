@@ -123,20 +123,31 @@ treasury=function(data_type) {
 ######2. Server Logic######
 shinyServer(function(input, output) {
   
-  # Reactive expression to store API data based on user input#
+  #Store API data based on user input#
   api_data <- reactive({
-    req(input$data_type)  # Require the user to select a data type#
+    req(input$data_type)  
     treasury(input$data_type)
   })
   
-  # Render the table output based on user selection#
+  #Show some data on tab#
   output$table_head <- renderPrint({
     api_data()
   })
   
-  # Placeholder reactive plot for Data Exploration tab#
+  #Download data as CSV#
+  output$download_data <- downloadHandler(
+    filename = function() {
+      paste("data_download.csv")
+    },
+    content = function(file) {
+      write.csv(as.data.frame(api_data()), file, row.names = FALSE)
+    }
+  )
+  
+  
+  
+  #Placeholder reactive plot for Data Exploration tab#
   output$plot2 <- renderPlot({
-    # Your plot logic here#
     plot(1:10, main = "Placeholder Plot")
   })
 })
