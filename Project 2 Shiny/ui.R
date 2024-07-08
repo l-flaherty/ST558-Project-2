@@ -29,7 +29,6 @@ fluidPage(
           selectInput("data_type", "Select Data Type:",
                       choices = c("Rates of Exchange"="fx", 
                                   "Interest Expense"="interest", 
-                                  "Auctions Query"="auction",
                                   "Debt to Penny"="debt",
                                   "Gold Reserve"="gold", 
                                   "Average Interest Rates"="rates",
