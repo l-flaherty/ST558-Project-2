@@ -52,11 +52,11 @@ shinyServer(function(input, output, session) {
   observe({
     req(input$data_type)
     
-    if (input$data_type == "fx") {  
-      countries <- unique(fx$country)
-      data_choices$countries <- countries
+    if (input$data_type=="fx") {  
+      countries=unique(fx$country)
+      data_choices$countries=countries
     } else {
-      data_choices$countries <- character(0)
+      data_choices$countries=character(0)
     }
   })
   
@@ -68,21 +68,21 @@ shinyServer(function(input, output, session) {
     updateSelectInput(session, "currency", choices = unique(fx$currency))
   })
   
-  output$year_slider_ui <- renderUI({
+  output$year_slider_ui=renderUI({
     req(input$country, input$currency)  
     
     
-    filtered_fx <- fx |>
-      filter(country == input$country, currency == input$currency)
+    filtered_fx=fx |>
+      filter(country==input$country, currency==input$currency)
     
     
-    min_year <- year(min(filtered_fx$date))
-    max_year <- year(max(filtered_fx$date))
+    min_year=year(min(filtered_fx$date))
+    max_year=year(max(filtered_fx$date))
     
     sliderInput("year_slider", "Select Year:",
-                min = min_year, max = max_year,
-                value = c(min_year, max_year),
-                step = 1, animate = TRUE)
+                min=min_year, max = max_year,
+                value=c(min_year, max_year),
+                step=1, animate=TRUE)
   })
   
   
@@ -91,17 +91,17 @@ shinyServer(function(input, output, session) {
   
   
   #Create line plot#
-  output$graphic_plot <- renderPlot({
+  output$fx_plot=renderPlot({
     req(input$data_type)
     
-    if (input$data_type == "fx" &&
+    if (input$data_type=="fx" &&
         !is.null(input$country) &&
         !is.null(input$currency)) {
       fx_rate(input$country, input$currency, as.Date(paste0(input$year_slider[1], "-01-01")), as.Date(paste0(input$year_slider[2], "-12-31")))
     } else {
       ggplot() +
         geom_point() +
-        labs(title = "Select a Data Type and Inputs to Begin", x = "", y = "")
+        labs(title="Select a Data Type and Inputs to Begin", x="", y="")
     }
   })
   

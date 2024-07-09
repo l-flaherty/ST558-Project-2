@@ -43,7 +43,7 @@ fluidPage(
                ),
                
                mainPanel(
-                 plotOutput("graphic_plot")
+                 plotOutput("fx_plot")
                )
              )
     )
