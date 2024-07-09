@@ -3,6 +3,7 @@ library(shinycssloaders)
 library(tidyverse)
 library(httr)
 library(jsonlite)
+library(gganimate)
 
 
 fluidPage(

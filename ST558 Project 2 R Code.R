@@ -5,11 +5,19 @@ install.packages("httr")
 install.packages("jsonlite")
 install.packages("shiny")
 install.packages("shinycssloaders")
+install.packages("gganimate")
+install.packages("datasauRus")
+install.packages("gifski")
+install.packages("lubridate")
+library("lubridate")
+library("gifski")
+library("datasauRus") 
 library("tidyverse")
 library("httr")
 library("jsonlite")
 library("shiny")
 library("shinycssloaders")
+library("gganimate")
 options(scipen=999)                  #to prevent scientific  notation with large numbers#
 #options(scipen = 0, digits = 7)     to reset#
 
@@ -242,16 +250,16 @@ interest=interest |>
          category=expense_catg_desc,
          group=expense_group_desc,
          type=expense_type_desc,
-         mtd_expense=month_expense_amt,
-         ytd_expense=fytd_expense_amt) |>
-  select(date, category, group, type, mtd_expense, ytd_expense)
+         mtd=month_expense_amt,
+         ytd=fytd_expense_amt) |>
+  select(date, category, group, type, mtd, ytd) |>
+  mutate(category=str_replace(category, "INTEREST EXPENSE ON ", "")) |>
+  mutate(date=as.Date(date), mtd=as.numeric(mtd), ytd=as.numeric(ytd))
 
 unique(interest$category)
 unique(interest$group)
 unique(interest$type)
 
-interest=interest |>
-  mutate(category=str_replace(interest$category, "INTEREST EXPENSE ON ", ""))
 
 
 
@@ -363,7 +371,8 @@ debt=debt|>
 outstanding=outstanding |>
   rename(date=record_date, debt=debt_outstanding_amt) |>
   select(date, debt) |>
-  mutate(date = as.Date(date))
+  mutate(date = as.Date(date)) |>
+  mutate(debt= as.numeric(debt))
 
 outstanding
 
@@ -453,10 +462,11 @@ treasury=function(data_type) {
              category=expense_catg_desc,
              group=expense_group_desc,
              type=expense_type_desc,
-             mtd_expense=month_expense_amt,
-             ytd_expense=fytd_expense_amt) |>
-      select(date, category, group, type, mtd_expense, ytd_expense) |>
-      mutate(category=str_replace(category, "INTEREST EXPENSE ON ", ""))
+             mtd=month_expense_amt,
+             ytd=fytd_expense_amt) |>
+      select(date, category, group, type, mtd, ytd) |>
+      mutate(category=str_replace(category, "INTEREST EXPENSE ON ", "")) |>
+      mutate(date=as.Date(date), mtd=as.numeric(mtd), ytd=as.numeric(ytd))
     
   } else if (data_type=="outstanding") {
     
@@ -484,7 +494,8 @@ treasury=function(data_type) {
     df=df|>
       rename(date=record_date, type=security_type_desc, security=security_desc, rate=avg_interest_rate_amt) |>
       select(date, type, security, rate) |>
-      suppressWarnings(mutate(date=as.Date(date), as.numeric(rate)))
+      mutate(date=as.Date(date), rate=as.numeric(rate)) |>
+      suppressWarnings()
     
   } else if (data_type=="spending") {
     
@@ -500,6 +511,27 @@ treasury=function(data_type) {
   }
   return(as_tibble(df))
 }
+
+
+
+###3k. Save all objects so don't have to keep querying API###
+debt=treasury("debt")
+fx=treasury("fx")
+gold=treasury("gold")
+interest=treasury("interest")
+outstanding=treasury("outstanding")
+rates=treasury("rates")
+spending=treasury("spending")
+
+save(debt, file="debt.R")
+save(fx, file="fx.R")
+save(gold, file="gold.R")
+save(interest, file="interest.R")
+save(outstanding, file="outstanding.R")
+save(rates, file="rates.R")
+save(spending, file="spending.R")
+
+
 
 
 
@@ -526,10 +558,9 @@ fx_rate=function(user_country, user_currency="default", user_date1="2001-03-31",
   }
   
   ggplot(data=a, aes(x=date, y=rate_per_usd)) +
-    geom_line() +
+    geom_line(color="Red") +
     labs(x="Date", 
          y="Rate Per USD", 
-         color="Red", 
          title=paste(a$country, a$currency, "Per USD")) +
     scale_y_continuous(labels = function(x) format(x, scientific = FALSE)) +
     theme_bw() +
@@ -545,7 +576,6 @@ fx_rate("Russia")
 
 
 ###4c. Gold###
-
 gold_location=function(df, default_date="2024-05-31") {
   
   user_date=as.Date(default_date)
@@ -579,11 +609,10 @@ gold_location(gold, "2022-12-21")
 
 
 ###4d. Rates###
-#No good ideas, maybe see mark vs non-mark?#
+#Maybe put Mark vs non-mark into contingency table with O/U#
 
 
 ###4e. Debt###
-
 debt_plot=function(df, t1="1993-04-01", t2="2024-07-02", type="default") {
   a=df |> 
     filter(date >= t1 & date <=t2) |>
@@ -601,6 +630,43 @@ debt_plot(debt)
 
 
 
+###4f. Outstanding###
+
+outstanding_plot=function(df, t1="1993-04-01", t2="2024-07-02") {
+  a=df |> 
+    filter(date >= t1 & date <=t2) |>
+    mutate(billions=debt/1000000000)
+  
+  ggplot(a, aes(x=date, y=billions)) +
+    geom_area(fill=555, alpha=0.3) +
+    geom_line(col="red", size=1) +
+    labs(x="Date", y="Debt Load (Billions USD)", title="U.S. Federal Debt") +
+    theme_bw()+
+    theme(plot.title=element_text(hjust=0.5))
+}
+
+outstanding_plot(outstanding)
+
+
+
+set.seed(123)
+dates <- seq(as.Date("2023-01-01"), as.Date("2023-12-31"), by = "day")
+values <- cumsum(rnorm(length(dates)))
+data <- data.frame(date = dates, value = values)
+
+# Create ggplot object with animation
+p <- ggplot(data, aes(x = date, y = value)) +
+  geom_line() +
+  labs(title = "Evolution of Values over Time") +
+  theme_minimal() +
+  transition_reveal(date)
+
+# Animate the plot
+animate(p, renderer = gifski_renderer("animation.gif"), nframes = 50, fps = 10)
+plot("animation.gif")
+
+
+
 ###4f. interest###
 #Maybe break into group/type over time#
 
@@ -611,6 +677,40 @@ debt_plot(debt)
 
 
 #########scrap#############################################################################################
+install.packages("datasauRus")
+library(datasauRus) 
+library(ggplot2) 
+library(gganimate)
+
+p <- ggplot(datasaurus_dozen, aes(x=x,y=y)) +
+  geom_point() +
+  theme_minimal() +
+  transition_states(dataset,3,1) + 
+  ease_aes() 
+
+anim_save("myfilename.gif",p)
+
+
+
+library(ggplot2)
+library(gganimate)
+
+# Generate example data
+set.seed(123)
+dates <- seq(as.Date("2023-01-01"), as.Date("2023-12-31"), by = "day")
+values <- cumsum(rnorm(length(dates)))
+data <- data.frame(date = dates, value = values)
+
+# Create ggplot object with animation
+p <- ggplot(data, aes(x = date, y = value)) +
+  geom_line() +
+  labs(title = "Evolution of Values over Time") +
+  theme_minimal() +
+  transition_reveal(date)
+
+# Animate the plot
+animate(p, renderer = gifski_renderer("animation.gif"), nframes = 50, fps = 10)
+plot("animation.gif")
 
 
 interest="v2/accounting/od/interest_expense"            #Interest Payments on debt#
@@ -668,3 +768,6 @@ treasury=function(data_type) {
   }
   return(as_tibble(df))
 }
+
+
+

@@ -3,6 +3,7 @@ library(shinycssloaders)
 library(tidyverse)
 library(httr)
 library(jsonlite)
+library(gganimate)
 
 ######1. UDF To Download Data From API######
 treasury=function(data_type) {
@@ -137,6 +138,10 @@ treasury=function(data_type) {
 
 
 
+
+
+
+
 #####3. Graphing Functions#####
 ###3a. FX###
 fx_rate=function(user_country, user_currency="default", user_date1="2001-03-31", user_date2="2024-06-14") {
@@ -151,10 +156,9 @@ fx_rate=function(user_country, user_currency="default", user_date1="2001-03-31",
   }
   
   ggplot(data=a, aes(x=date, y=rate_per_usd)) +
-    geom_line() +
+    geom_line(color="Red") +
     labs(x="Date", 
          y="Rate Per USD", 
-         color="Red", 
          title=paste(a$country, a$currency, "Per USD")) +
     scale_y_continuous(labels = function(x) format(x, scientific = FALSE)) +
     theme_bw() +
@@ -162,6 +166,58 @@ fx_rate=function(user_country, user_currency="default", user_date1="2001-03-31",
 }
 
 
+
+###3b. Gold###
+gold_location=function(df, default_date="2024-05-31") {
+  
+  user_date=as.Date(default_date)
+  
+  closest_date <- df |>
+    filter(!is.na(date)) |>
+    filter(date <= user_date) |>
+    slice(which.max(date - user_date)) |>
+    pull(date)
+  
+  troy=df |>
+    filter(date==closest_date) |>
+    group_by(location) |>
+    summarize(troy_ounces=sum(qty))
+  
+  mytitle=paste0("U.S. Gold Holdings", " As Of ", user_date, " (Updated Monthly)")
+  
+  ggplot(troy, aes(x=location, y=troy_ounces)) +
+    geom_bar(stat="identity", fill="darkgoldenrod1") +
+    labs(x ="Location", y="Troy Ounces", title=mytitle) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          plot.title = element_text(hjust = 0.5)) +
+    scale_y_continuous(labels = scales::comma) 
+}
+
+
+
+###3c. Debt###
+debt_plot=function(df, t1="1993-04-01", t2="2024-07-02", type="default") {
+  a=df |> 
+    filter(date >= t1 & date <=t2) |>
+    mutate(trillions=debt_outstanding/1000000000000)
+  
+  ggplot(a, aes(x=date, y=trillions)) +
+    geom_area(fill=555, alpha=0.3) +
+    geom_line(col="red", size=1) +
+    labs(x="Date", y="Debt Load (Trillions USD)", title="U.S. Federal Debt") +
+    theme_bw()+
+    theme(plot.title=element_text(hjust=0.5))
+}
+
+
+
+###3d. ###
+
+#interest=treasury("interest")
+#outstanding=treasury("outstanding")
+#spending=treasury("spending")
+#rates=treasury("rates")
 
 
 
