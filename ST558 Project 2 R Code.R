@@ -641,6 +641,7 @@ outstanding_plot=function(df, t1="1993-04-01", t2="2024-07-02") {
     geom_area(fill=555, alpha=0.3) +
     geom_line(col="red", size=1) +
     labs(x="Date", y="Debt Load (Billions USD)", title="U.S. Federal Debt") +
+    ylim(0, max(a$billions)) +
     theme_bw()+
     theme(plot.title=element_text(hjust=0.5))
 }
