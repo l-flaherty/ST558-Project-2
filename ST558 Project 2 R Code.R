@@ -531,6 +531,14 @@ save(outstanding, file="outstanding.R")
 save(rates, file="rates.R")
 save(spending, file="spending.R")
 
+load("debt.R")
+load("fx.R")
+load("gold.R")
+load("interest.R")
+load("outstanding.R")
+load("rates.R")
+load("spending.R")
+
 
 
 
@@ -639,7 +647,7 @@ outstanding_plot=function(df, t1="1993-04-01", t2="2024-07-02") {
   
   ggplot(a, aes(x=date, y=billions)) +
     geom_area(fill=555, alpha=0.3) +
-    geom_line(col="red", size=1) +
+    geom_line(col="red", linewidth=1) +
     labs(x="Date", y="Debt Load (Billions USD)", title="U.S. Federal Debt") +
     ylim(0, max(a$billions)) +
     theme_bw()+
@@ -647,24 +655,6 @@ outstanding_plot=function(df, t1="1993-04-01", t2="2024-07-02") {
 }
 
 outstanding_plot(outstanding)
-
-
-
-set.seed(123)
-dates <- seq(as.Date("2023-01-01"), as.Date("2023-12-31"), by = "day")
-values <- cumsum(rnorm(length(dates)))
-data <- data.frame(date = dates, value = values)
-
-# Create ggplot object with animation
-p <- ggplot(data, aes(x = date, y = value)) +
-  geom_line() +
-  labs(title = "Evolution of Values over Time") +
-  theme_minimal() +
-  transition_reveal(date)
-
-# Animate the plot
-animate(p, renderer = gifski_renderer("animation.gif"), nframes = 50, fps = 10)
-plot("animation.gif")
 
 
 
