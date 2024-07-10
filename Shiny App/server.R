@@ -113,7 +113,8 @@ treasury=function(data_type) {
     df=df|>
       rename(date=record_date, type=security_type_desc, security=security_desc, rate=avg_interest_rate_amt) |>
       select(date, type, security, rate) |>
-      suppressWarnings(mutate(date=as.Date(date), as.numeric(rate)))
+      mutate(date=as.Date(date), rate=as.numeric(rate)) |>
+      suppressWarnings()
     
   } else if (data_type=="spending") {
     
