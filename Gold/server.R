@@ -17,7 +17,6 @@ load("gold.R") #So don't have to call API#
 #####3. UDF: Graphing Functions#####
 ###3c. Gold###
 gold_location=function(df, default_date="2024-05-31") {
-  
   user_date=as.Date(default_date)
   
   closest_date=df |>
@@ -49,10 +48,8 @@ gold_location=function(df, default_date="2024-05-31") {
 
 
 #####4. Shiny Server Logic#####
-# Define the server logic
 shinyServer(function(input, output, session) {
-  
-  #Render the initial plot#
+
   output$gold_plot=renderPlot({
     dateval=as.Date(input$input_date)
     gold_location(gold,dateval)

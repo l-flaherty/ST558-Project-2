@@ -621,15 +621,27 @@ gold_location(gold, "2022-12-21")
 
 
 ###4e. Debt###
-debt_plot=function(df, t1="1993-04-01", t2="2024-07-02", type="default") {
-  a=df |> 
-    filter(date >= t1 & date <=t2) |>
-    mutate(trillions=debt_outstanding/1000000000000)
+debt_plot=function(df, t1=1993, t2=2024, type="default") {
+  if(t1>t2) {
+    a=t2; t2=t1; t1=a
+  }
   
-  ggplot(a, aes(x=date, y=trillions)) +
-    geom_area(fill=555, alpha=0.3) +
-    geom_line(col="red", size=1) +
-    labs(x="Date", y="Debt Load (Trillions USD)", title="U.S. Federal Debt") +
+  a=df |> 
+    filter(!is.na(debt_held_public)) |>
+    select(date, "Debt Held By Public"="debt_held_public",
+           "Intragovernment Holdings"="intragov_hold") |>
+    mutate(year=year(date)) |>
+    distinct(year, .keep_all=TRUE) |>
+    filter(year>=t1 & year<=t2) |>
+    pivot_longer(cols=c("Debt Held By Public", "Intragovernment Holdings"), 
+                 names_to="type", 
+                 values_to="value") |>
+    mutate(value=value/1000000000000)
+  
+  ggplot(a, aes(x=date, y=value, fill=type)) +
+    geom_bar(position="stack", stat="identity") +
+    labs(x="Date", y="Debt Load (Trillions USD)", 
+         title= paste0("National Debt Breakdown (", t1, "-", t2, ")")) +
     theme_bw()+
     theme(plot.title=element_text(hjust=0.5))
 }
@@ -640,18 +652,41 @@ debt_plot(debt)
 
 ###4f. Outstanding###
 
-outstanding_plot=function(df, t1="1993-04-01", t2="2024-07-02") {
+outstanding_plot=function(df, t1="1993", t2="2024") {
+  
+  #Make inputs dates and in the correct order#
+  t1=as.Date(paste0(t1,"-01-01"))
+  t2=as.Date(paste0(t2,"-01-01"))
+  
+  if(t1>t2) {
+    a=t2; t2=t1; t1=a
+    rm(a)
+  }
+  
+  #Filter tibble to desired range#
   a=df |> 
-    filter(date >= t1 & date <=t2) |>
+    filter(date>=as.Date(t1), date<=as.Date(t2)) |>
     mutate(billions=debt/1000000000)
   
-  ggplot(a, aes(x=date, y=billions)) +
-    geom_area(fill=555, alpha=0.3) +
-    geom_line(col="red", linewidth=1) +
-    labs(x="Date", y="Debt Load (Billions USD)", title="U.S. Federal Debt") +
-    ylim(0, max(a$billions)) +
-    theme_bw()+
-    theme(plot.title=element_text(hjust=0.5))
+  #Plot a line chart if possible, otherwise a bar#
+  if(nrow(a)>1) {
+    ggplot(a, aes(x=date, y=billions)) +
+      geom_area(fill=555, alpha=0.3) +
+      geom_line(col="red", linewidth=1) +
+      labs(x="Date", y="Debt Load (Billions USD)", title="U.S. Federal Debt") +
+      ylim(0, max(a$billions)) +
+      theme_bw()+
+      theme(plot.title=element_text(hjust=0.5))
+  } else {
+    a$date = factor(a$date)
+    
+    ggplot(a, aes(x=date, y=billions)) +
+      geom_bar(stat="identity", width=0.15, col="red", fill=555, alpha=0.3) +
+      labs(x="Date", y="Debt Load (Billions USD)", title="U.S. Federal Debt") +
+      ylim(0, max(a$billions)) +
+      theme_bw()+
+      theme(plot.title=element_text(hjust=0.5))
+  }
 }
 
 outstanding_plot(outstanding)
@@ -668,6 +703,14 @@ outstanding_plot(outstanding)
 
 
 #########scrap#############################################################################################
+
+#To toy with examples#
+shiny::runExample("01_hello", display.mode="showcase")
+
+##
+unique(rates[which(rates$type=="Non-marketable"), "security"])
+unique(rates[which(rates$type=="Marketable"), "security"])
+
 install.packages("datasauRus")
 library(datasauRus) 
 library(ggplot2) 

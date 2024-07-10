@@ -1,14 +1,14 @@
 #####1. Load Required Packages#####
-library("lubridate")
-library("gifski")
-library("datasauRus") 
-library("tidyverse")
-library("httr")
-library("jsonlite")
-library("shiny")
-library("shinycssloaders")
+library(lubridate)
+library(gifski)
+library(datasauRus) 
+library(tidyverse)
+library(httr)
+library(jsonlite)
+library(shiny)
+library(shinycssloaders)
 library("gganimate")
-load("fx.R") #So don't have to call API#
+load("debt.R") #So don't have to call API#
 
 
 
@@ -23,27 +23,22 @@ fluidPage(
                  selectInput("data_type", "Select Data Type:",
                              choices = c("Rates of Exchange"="fx", 
                                          "Interest Expense"="interest", 
-                                         "Debt to Penny"="debt",
+                                         "Debt Breakdown"="debt",
                                          "Gold Reserve"="gold", 
                                          "Average Interest Rates"="rates",
                                          "Debt Outstanding"="outstanding",
                                          "Receipts by Department"="spending")),
                  
                  conditionalPanel(
-                   condition = "input.data_type == 'fx'", 
+                   condition = "input.data_type == 'debt'", 
                    
-                   selectInput("country", "Select Country:",
-                               choices=NULL),  
-                   
-                   selectInput("currency", "Select Currency:",
-                               choices=NULL),  
-                   
-                   uiOutput("year_slider_ui")
+                   numericInput("date1", label="Start Date", value=2000),  
+                   numericInput("date2", label="Start Date", value=2020)
                  )
                ),
                
                mainPanel(
-                 plotOutput("fx_plot")
+                 plotOutput("debt_image")
                )
              )
     )
