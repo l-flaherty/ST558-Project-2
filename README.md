@@ -5,4 +5,4 @@ This project is an R Shiny App centered around macroeconomic and fiscal data pro
 
 The app requires a few libaries including the tidyverse, httr, and jsonlite. Users can install all required packages prior to running the app with the following: install.packages(c("tidyverse", "httr", "jsonlite", "shiny", "lubridate")), and then load them in with library(tidyverse), library(httr), etc. 
 
-•	The shiny::runGitHub() code that we can copy and paste into RStudio to run your app.
+One can run shiny::runGitHub("ST558-Project-2", "l-flaherty", ref="main", subdir="Shiny App") directly from their console to interact with the application. 
