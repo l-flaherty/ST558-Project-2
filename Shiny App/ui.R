@@ -61,8 +61,7 @@ fluidPage(
     
     
     ###2c. The Third Tab, Data Exploration###
-    tabsetPanel(
-      tabPanel("Data Exploration",
+      tabPanel("Data Exploration", fluidPage(
                sidebarLayout(
                  sidebarPanel(
                    selectInput("data_type", "Select Data Type:",

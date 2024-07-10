@@ -167,8 +167,8 @@ outstanding_plot=function(df, t1="1993", t2="2024") {
 
 
 ######4. Server Logic######
-shinyServer(function(input, output) {
-  
+shinyServer(function(input, output, session) {
+  ###4a. Data Download Tab###
   #Store API data based on user input#
   api_data <- reactive({
     req(input$data_type)  
@@ -192,8 +192,111 @@ shinyServer(function(input, output) {
   
   
   
-  #Placeholder Plot for Data Exploration tab#
-  output$plot2 <- renderPlot({
-    plot(1:10, main = "Placeholder Plot")
+  ###4b. Data Exploration tab###
+  #Outstanding Section#
+  myvals = reactiveValues(
+    start=NULL,
+    end=NULL,
+    skip=NULL,
+    current_end=NULL,
+    play_status=FALSE
+  )
+  
+  observe({
+    myvals$start=input$start_date
+    myvals$end=input$end_date
+    myvals$skip=input$skip_value
+  })
+  
+  output$debt_plot=renderPlot({
+    outstanding_plot(outstanding, myvals$start, myvals$end)
+  })
+  
+  #Debt Section#
+  output$debt_image=renderPlot({
+    date1=as.Date(input$date1)
+    date2=as.Date(input$date2)
+    debt_plot(debt, date1, date2)
+  })
+  
+  #Gold Section#
+  output$gold_plot=renderPlot({
+    dateval=as.Date(input$input_date)
+    gold_location(gold,dateval)
+  })
+  
+  
+  #Rates Section#
+  output$myTable=renderTable({
+    dateyear=input$user_year
+    datemonth=input$user_month
+    rates_table(rates, dateyear,datemonth)[[1]]
+  })
+  
+  output$myText=renderText({
+    dateyear=input$user_year
+    datemonth=input$user_month
+    avg=rates_table(rates, dateyear,datemonth)[[2]]
+    mydate=paste0(dateyear, "-", datemonth)
+    paste0("In ", mydate, " the average interest rate across all security types was ", avg, "%.")
+  })
+  
+  #FX Section#
+  data_choices=reactiveValues(countries=character(0),
+                              currencies=character(0))
+  
+  observe({
+    req(input$data_type)
+    
+    if (input$data_type=="fx") {  
+      countries=unique(fx$country)
+      data_choices$countries=countries
+    } else {
+      data_choices$countries=character(0)
+    }
+  })
+  
+
+  observe({
+    updateSelectInput(session, "country", choices=unique(fx$country))
+    updateSelectInput(session, "currency", choices=unique(fx$currency))
+  })
+  
+  output$year_slider_ui=renderUI({
+    req(input$country, input$currency)  
+    
+    
+    filtered_fx=fx |>
+      filter(country==input$country, currency==input$currency)
+    
+    min_year=year(min(filtered_fx$date))
+    max_year=year(max(filtered_fx$date))
+    
+    sliderInput("year_slider", "Select Year:",
+                min=min_year, max = max_year,
+                value=c(min_year, max_year),
+                step=1, animate=TRUE)
+  })
+  
+  output$fx_plot=renderPlot({
+    req(input$data_type)
+    
+    if (input$data_type=="fx" &&
+        !is.null(input$country) &&
+        !is.null(input$currency)) {
+      fx_rate(input$country, input$currency, as.Date(paste0(input$year_slider[1], "-01-01")), as.Date(paste0(input$year_slider[2], "-12-31")))
+    } else {
+      ggplot() +
+        geom_point() +
+        labs(title="Select a Data Type and Inputs to Begin", x="", y="")
+    }
+  })
+
+  observe({
+    updateSelectInput(session, "country", choices=data_choices$countries)
+  })
+  
+  observe({
+    updateSelectInput(session, "currency", choices=data_choices$currencies)
   })
 })
