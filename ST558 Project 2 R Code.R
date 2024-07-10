@@ -619,6 +619,16 @@ gold_location(gold, "2022-12-21")
 ###4d. Rates###
 #Maybe put Mark vs non-mark into contingency table with O/U#
 
+rates_table=function(df, user_year=2020, user_month=1) {
+  a=df|>
+    mutate(year=year(date), month=month(date)) |>
+    filter(year==user_year, month==user_month) |>
+    mutate(avg=mean(rate)) |>
+    mutate(over=ifelse(rate>avg, "over average", "under average"))
+  
+  table(a$type, a$over)
+}
+
 
 ###4e. Debt###
 debt_plot=function(df, t1=1993, t2=2024, type="default") {

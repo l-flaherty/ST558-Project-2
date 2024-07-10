@@ -8,7 +8,7 @@ library("jsonlite")
 library("shiny")
 library("shinycssloaders")
 library("gganimate")
-load("fx.R") #So don't have to call API#
+load("rates.R") #So don't have to call API#
 
 
 
@@ -30,20 +30,16 @@ fluidPage(
                                          "Receipts by Department"="spending")),
                  
                  conditionalPanel(
-                   condition = "input.data_type == 'fx'", 
+                   condition = "input.data_type == 'rates'", 
                    
-                   selectInput("country", "Select Country:",
-                               choices=NULL),  
-                   
-                   selectInput("currency", "Select Currency:",
-                               choices=NULL),  
-                   
-                   uiOutput("year_slider_ui")
+                   sliderInput("user_year", label="Select Year:", min=2001, max=2024, value=2020),  
+                   sliderInput("user_month", label="Select Month:", min=1, max=12, value=1),  
                  )
                ),
-               
+      
                mainPanel(
-                 plotOutput("fx_plot")
+                 tableOutput("myTable"),
+                 textOutput("myText")
                )
              )
     )
