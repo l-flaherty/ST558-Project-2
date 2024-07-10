@@ -8,19 +8,135 @@ library(gifski)
 library(datasauRus) 
 library(shinycssloaders)
 library(gganimate)
-load("gold.R")
-load("debt.R")
-load("outstanding.R")
-load("fx.R")
-load("rates.R")
 
 ###########
-#2. UDF: Data Download=21-
-#3. UDF: Functions=27-162
-#4. Server Logic:
+#2. UDF: Data Download=18-138
+#3. UDF: Functions=144-278
+#4. Server Logic: 284-376
 ###########
 
 #####2. UDF: Download Data#####
+treasury=function(data_type) {
+  
+  #Create URL for API Query#
+  endpoint_lookup=data.frame(
+    input=c("fx", "interest", "debt", "gold", "rates", "outstanding", "spending"),
+    url=c("v1/accounting/od/rates_of_exchange",
+          "v2/accounting/od/interest_expense",
+          "v2/accounting/od/debt_to_penny",
+          "v2/accounting/od/gold_reserve",
+          "v2/accounting/od/avg_interest_rates",
+          "v2/accounting/od/debt_outstanding",
+          "v1/accounting/od/receipts_by_department")
+  )
+  base_url="https://api.fiscaldata.treasury.gov/services/api/fiscal_service/"
+  endpoint=endpoint_lookup[,2][match(data_type, endpoint_lookup[,1])]
+  
+  #Query API#
+  api_return=GET(paste0(base_url, endpoint))
+  plaintext=fromJSON(rawToChar(api_return$content))
+  page_size=1000
+  page_number=round(plaintext$meta[["total-count"]]/page_size)+1
+  df=data.frame()
+  
+  for (i in 1:page_number) {
+    url=paste0(
+      base_url,
+      endpoint,
+      "?page[number]=", i,
+      "&page[size]=", 1000)
+    
+    api=GET(url)
+    plain=fromJSON(rawToChar(api$content))
+    a=plain$data
+    
+    df=rbind(df, a)
+  }
+  
+  #Format resulting data#
+  if(data_type=="fx") {
+    
+    df=df |>
+      select(effective_date, country, currency, exchange_rate) |>
+      rename(date=effective_date, rate_per_usd=exchange_rate) |>
+      mutate(date=as.Date(date), rate_per_usd=as.numeric(rate_per_usd))
+    
+  } else if (data_type=="gold") {
+    
+    goldcol=c("record_date", "facility_desc", "form_desc", "location_desc", "fine_troy_ounce_qty", "book_value_amt")
+    
+    df= df |>
+      select(all_of(goldcol)) 
+    names(df)=c("date", "facility", "form", "location", "qty", "book_value")
+    
+    df=df |>
+      mutate(facility=str_replace(facility, " Held Gold", "")) |>
+      mutate(location=str_replace(location, "All Locations- Coins, blanks, m", "M")) |>
+      mutate(location=str_replace(location, "Federal Reserve Banks", "FRB")) |>
+      mutate(date=as.Date(date), qty=round(as.numeric(qty),2), book_value=as.numeric(book_value))
+    
+  } else if (data_type=="interest") {
+    
+    df=df |> 
+      rename(date=record_date,
+             category=expense_catg_desc,
+             group=expense_group_desc,
+             type=expense_type_desc,
+             mtd_expense=month_expense_amt,
+             ytd_expense=fytd_expense_amt) |>
+      select(date, category, group, type, mtd_expense, ytd_expense) |>
+      mutate(category=str_replace(category, "INTEREST EXPENSE ON ", ""))
+    
+  } else if (data_type=="outstanding") {
+    
+    df=df |>
+      rename(date=record_date, debt=debt_outstanding_amt) |>
+      select(date, debt) |>
+      mutate(date = as.Date(date)) |>
+      mutate(debt = round(as.numeric(debt),2))
+    
+  } else if (data_type=="debt") {
+    
+    df=df|>
+      rename(date=record_date,
+             debt_held_public=debt_held_public_amt,
+             intragov_hold=intragov_hold_amt,
+             debt_outstanding=tot_pub_debt_out_amt) |>
+      select(date, debt_held_public, intragov_hold, debt_outstanding) |>
+      mutate(date=as.Date(date), 
+             debt_held_public=suppressWarnings(as.numeric(debt_held_public)),
+             intragov_hold=suppressWarnings(as.numeric(intragov_hold)),
+             debt_outstanding=suppressWarnings(as.numeric(debt_outstanding))) 
+    
+  } else if (data_type=="rates") {
+    
+    df=df|>
+      rename(date=record_date, type=security_type_desc, security=security_desc, rate=avg_interest_rate_amt) |>
+      select(date, type, security, rate) |>
+      suppressWarnings(mutate(date=as.Date(date), as.numeric(rate)))
+    
+  } else if (data_type=="spending") {
+    
+    df=df |>
+      rename(date=record_date, 
+             line_item=receipt_line_item_nm, 
+             agency_id=aid_cd, 
+             amount=receipt_amt) |>
+      select(date, line_item, agency_id, amount) |>
+      mutate(date=as.Date(date), 
+             agency_id=as.numeric(agency_id),
+             amount=as.numeric(amount))
+  }
+  return(as_tibble(df))
+}
+
+###2a. Returning Data From API###
+fx=treasury("fx")
+outstanding=treasury("outstanding")
+rates=treasury("rates")
+gold=treasury("gold")
+debt=treasury("debt")
+
 
 
 
@@ -101,10 +217,9 @@ gold_location=function(df, default_date="2024-05-31") {
 
 
 ###3d. FX Function###
-fx_rate=function(user_country, user_currency="default", user_date1="2001-03-31", user_date2="2024-06-14") {
+fx_rate=function(user_country, user_currency="default") {
   a=fx|>
-    filter(country==user_country, 
-           (date>=user_date1 & date<=user_date2))
+    filter(country==user_country)
   
   if(user_currency=="default") {
     a=a
@@ -242,61 +357,20 @@ shinyServer(function(input, output, session) {
   })
   
   #FX Section#
-  data_choices=reactiveValues(countries=character(0),
-                              currencies=character(0))
-  
-  observe({
-    req(input$data_type)
-    
-    if (input$data_type=="fx") {  
-      countries=unique(fx$country)
-      data_choices$countries=countries
-    } else {
-      data_choices$countries=character(0)
-    }
-  })
-  
-
   observe({
     updateSelectInput(session, "country", choices=unique(fx$country))
-    updateSelectInput(session, "currency", choices=unique(fx$currency))
   })
   
-  output$year_slider_ui=renderUI({
-    req(input$country, input$currency)  
-    
-    
-    filtered_fx=fx |>
-      filter(country==input$country, currency==input$currency)
-    
-    min_year=year(min(filtered_fx$date))
-    max_year=year(max(filtered_fx$date))
-    
-    sliderInput("year_slider", "Select Year:",
-                min=min_year, max = max_year,
-                value=c(min_year, max_year),
-                step=1, animate=TRUE)
+  observe({
+    req(input$country)
+    currencies=unique(fx$currency[fx$country==input$country])
+    updateSelectInput(session, "currency", 
+                      choices=c("All Currencies"="default", currencies),
+                      selected="default")
   })
   
   output$fx_plot=renderPlot({
-    req(input$data_type)
-    
-    if (input$data_type=="fx" &&
-        !is.null(input$country) &&
-        !is.null(input$currency)) {
-      fx_rate(input$country, input$currency, as.Date(paste0(input$year_slider[1], "-01-01")), as.Date(paste0(input$year_slider[2], "-12-31")))
-    } else {
-      ggplot() +
-        geom_point() +
-        labs(title="Select a Data Type and Inputs to Begin", x="", y="")
-    }
-  })
-
-  observe({
-    updateSelectInput(session, "country", choices=data_choices$countries)
-  })
-  
-  observe({
-    updateSelectInput(session, "currency", choices=data_choices$currencies)
+    req(input$country)
+    fx_rate(input$country, input$currency)
   })
 })

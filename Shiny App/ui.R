@@ -8,11 +8,6 @@ library(gifski)
 library(datasauRus) 
 library(shinycssloaders)
 library(gganimate)
-load("gold.R")
-load("debt.R")
-load("outstanding.R")
-load("fx.R")
-load("rates.R")
 
 
 
@@ -61,80 +56,81 @@ fluidPage(
     
     
     ###2c. The Third Tab, Data Exploration###
-      tabPanel("Data Exploration", fluidPage(
-               sidebarLayout(
-                 sidebarPanel(
-                   selectInput("data_type", "Select Data Type:",
-                               choices = c("Rates of Exchange"="fx", 
-                                           "Debt Outstanding"="outstanding",
-                                           "Debt to Penny"="debt",
-                                           "Average Interest Rates"="rates",
-                                           "Gold Reserve"="gold")),
-                   
-                   #Conditional Widgets#
-                   conditionalPanel(
-                     condition="input.data_type == 'rates'", 
-                     sliderInput("user_year", label="Select Year:", min=2001, max=2024, value=2020),  
-                     sliderInput("user_month", label="Select Month:", min=1, max=12, value=1),  
-                   ),
-                   
-                   conditionalPanel(
-                     condition="input.data_type == 'fx'", 
-                     selectInput("country", "Select Country:", choices=NULL),  
-                     selectInput("currency", "Select Currency:", choices=NULL),  
-                     uiOutput("year_slider_ui")
-                   ),
-                   
-                   conditionalPanel(
-                     condition="input.data_type == 'gold", 
-                     dateInput("input_date", 
-                               label="Select a date:", 
-                               value=as.Date("2024-05-31"))
-                   ),
-                   
-                   conditionalPanel(
-                     condition = "input.data_type == 'debt'", 
-                     numericInput("date1", label="Start Date", value=2000),  
-                     numericInput("date2", label="Start Date", value=2020)
-                   ),
-                   
-                   conditionalPanel(
-                     condition = "input.data_type == 'outstanding'", 
-                     numericInput("start_date", label="Start Year:", value=1993, min=1790),
-                     numericInput("end_date", label="End Year:", value=2024, max=2024)
-                   )
-                 ),
-                 
-                 #Conditional Display#
-                 mainPanel(
-                   conditionalPanel(
-                     condition="input.data_type == 'rates'",
-                     tableOutput("myTable"),
-                     textOutput("myText")
-                   ),
-                   
-                   conditionalPanel(
-                     condition="input.data_type == 'fx'",
-                     plotOutput("fx_plot")
-                   ),
-                   
-                   conditionalPanel(
-                     condition="input.data_type == 'gold'",
-                     plotOutput("gold_plot")
-                   ),
-                   
-                   conditionalPanel(
-                     condition="input.data_type == 'debt'",
-                     plotOutput("debt_image")
-                   ),
-                   
-                   conditionalPanel(
-                     condition="input.data_type == 'outstanding'",
-                     plotOutput("debt_plot")
-                   )
-                 )
-               )
-      )
-    )
-  )
-)
+    tabPanel("Data Exploration", fluidPage(
+      sidebarLayout(
+        sidebarPanel(
+          selectInput("data_type", "Select Data Type:",
+                      choices = c("Rates of Exchange"="fx", 
+                                  "Debt Outstanding"="outstanding",
+                                  "Debt to Penny"="debt",
+                                  "Average Interest Rates"="rates",
+                                  "Gold Reserve"="gold")),
+          
+          conditionalPanel(
+            condition = "input.data_type != null",
+            
+            conditionalPanel(
+              condition = "input.data_type == 'rates'", 
+              sliderInput("user_year", label="Select Year:", min=2001, max=2024, value=2020),  
+              sliderInput("user_month", label="Select Month:", min=1, max=12, value=1)
+            ),
+            
+            conditionalPanel(
+              condition = "input.data_type == 'fx'", 
+              selectInput("country", "Select Country:", choices=NULL),  
+              selectInput("currency", "Select Currency:", choices=NULL)
+            ),
+            
+            conditionalPanel(
+              condition = "input.data_type == 'gold'", 
+              dateInput("input_date", 
+                        label="Select a date:", 
+                        value=as.Date("2024-05-31"))
+            ),
+            
+            conditionalPanel(
+              condition = "input.data_type == 'debt'", 
+              numericInput("date1", label="Start Date", value=2000),  
+              numericInput("date2", label="End Date", value=2020)
+            ),
+            
+            conditionalPanel(
+              condition = "input.data_type == 'outstanding'", 
+              numericInput("start_date", label="Start Year:", value=1993, min=1790),
+              numericInput("end_date", label="End Year:", value=2024, max=2024)
+            )
+          )
+        ),
+        
+        mainPanel(
+          conditionalPanel(
+            condition = "input.data_type == 'rates'",
+            tableOutput("myTable"),
+            textOutput("myText")
+          ),
+          
+          conditionalPanel(
+            condition = "input.data_type == 'fx'",
+            plotOutput("fx_plot")
+          ),
+          
+          conditionalPanel(
+            condition = "input.data_type == 'gold'",
+            plotOutput("gold_plot")
+          ),
+          
+          conditionalPanel(
+            condition = "input.data_type == 'debt'",
+            plotOutput("debt_image")
+          ),
+          
+          conditionalPanel(
+            condition = "input.data_type == 'outstanding'",
+            plotOutput("debt_plot")
+          )
+        ) #main panel#
+      ) #sidebar layout#
+      ) #fluid page#
+    )  #tab panel#
+  ) #tabset panel#
+) #fluidpage#

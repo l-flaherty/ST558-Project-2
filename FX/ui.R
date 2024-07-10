@@ -31,14 +31,8 @@ fluidPage(
                  
                  conditionalPanel(
                    condition = "input.data_type == 'fx'", 
-                   
-                   selectInput("country", "Select Country:",
-                               choices=NULL),  
-                   
-                   selectInput("currency", "Select Currency:",
-                               choices=NULL),  
-                   
-                   uiOutput("year_slider_ui")
+                   selectInput("country", "Select Country:", choices=NULL),  
+                   selectInput("currency", "Select Currency:", choices=NULL)
                  )
                ),
                
